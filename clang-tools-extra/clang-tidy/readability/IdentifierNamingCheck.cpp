@@ -114,6 +114,9 @@ namespace readability {
     m(PublicMethod) \
     m(Method) \
     m(Typedef) \
+    m(TypedefStruct) \
+    m(TypedefEnum) \
+    m(TypedefUnion) \
     m(TypeTemplateParameter) \
     m(ValueTemplateParameter) \
     m(TemplateTemplateParameter) \
@@ -1067,8 +1070,18 @@ StyleKind IdentifierNamingCheck::findStyleKind(
   if (isa<ObjCIvarDecl>(D) && NamingStyles[SK_ObjcIvar])
     return SK_ObjcIvar;
 
-  if (isa<TypedefDecl>(D) && NamingStyles[SK_Typedef])
-    return SK_Typedef;
+  if (const auto *Decl = dyn_cast<TypedefDecl>(D)) {
+    const auto CanonicalType = Decl->getUnderlyingType().getCanonicalType();
+    const auto BaseType = CanonicalType.getTypePtr();
+    if (BaseType->isStructureType() && NamingStyles[SK_TypedefStruct])
+      return SK_TypedefStruct;
+    if (BaseType->isEnumeralType() && NamingStyles[SK_TypedefEnum])
+      return SK_TypedefEnum;
+    if (BaseType->isUnionType() && NamingStyles[SK_TypedefUnion])
+      return SK_TypedefUnion;
+    if (NamingStyles[SK_Typedef])
+      return SK_Typedef;
+  }
 
   if (isa<TypeAliasDecl>(D) && NamingStyles[SK_TypeAlias])
     return SK_TypeAlias;
@@ -1123,6 +1136,22 @@ StyleKind IdentifierNamingCheck::findStyleKind(
 
     if (Decl->isClass() && NamingStyles[SK_Struct])
       return SK_Struct;
+
+    if (Decl->isUnion() && NamingStyles[SK_Union])
+      return SK_Union;
+
+    if (Decl->isEnum() && NamingStyles[SK_Enum])
+      return SK_Enum;
+
+    return SK_Invalid;
+  }
+
+  if (const auto *Decl = dyn_cast<RecordDecl>(D)) {
+    if (Decl->isStruct() && NamingStyles[SK_Struct])
+      return SK_Struct;
+
+    if (Decl->isStruct() && NamingStyles[SK_Class])
+      return SK_Class;
 
     if (Decl->isUnion() && NamingStyles[SK_Union])
       return SK_Union;
